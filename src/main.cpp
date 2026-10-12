@@ -32,7 +32,7 @@ constexpr DWORD kWindowStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINI
 
 // Layout in 96-DPI pixels.
 constexpr int kClientWidth = 520;
-constexpr int kClientHeight = 268;
+constexpr int kClientHeight = 290;
 constexpr int kMargin = 12;
 constexpr int kLabelWidth = 76;
 constexpr int kFieldX = kMargin + kLabelWidth + 8;
@@ -51,6 +51,7 @@ enum ControlId {
     kFolderId,
     kBrowseId,
     kOpenId,
+    kTopMostId,
     kRecordId,
     kLeftLabelId,
     kMeterLeftId,
@@ -86,6 +87,7 @@ struct AppState {
     HWND folderEdit = nullptr;
     HWND browse = nullptr;
     HWND open = nullptr;
+    HWND topMost = nullptr;
     HWND record = nullptr;
     HWND meterLeft = nullptr;
     HWND meterRight = nullptr;
@@ -95,6 +97,7 @@ struct AppState {
     std::wstring folder;
     std::wstring sourceSetting = L"chrome.exe";  // exe name or kSystemSource
     int formatIndex = 0;
+    bool alwaysOnTop = false;
 
     ws::Recorder recorder;
     bool recording = false;
@@ -175,6 +178,7 @@ void LoadSettings() {
     g.sourceSetting = ReadSetting(L"Source", L"chrome.exe");
     g.formatIndex = static_cast<int>(GetPrivateProfileIntW(kAppName, L"Format", 0, SettingsPath().c_str()));
     if (g.formatIndex < 0 || g.formatIndex >= static_cast<int>(ARRAYSIZE(kFormats))) g.formatIndex = 0;
+    g.alwaysOnTop = GetPrivateProfileIntW(kAppName, L"TopMost", 0, SettingsPath().c_str()) != 0;
 }
 
 void SaveSettings() {
@@ -182,6 +186,7 @@ void SaveSettings() {
     WritePrivateProfileStringW(kAppName, L"Folder", g.folder.c_str(), path.c_str());
     WritePrivateProfileStringW(kAppName, L"Source", g.sourceSetting.c_str(), path.c_str());
     WritePrivateProfileStringW(kAppName, L"Format", std::to_wstring(g.formatIndex).c_str(), path.c_str());
+    WritePrivateProfileStringW(kAppName, L"TopMost", g.alwaysOnTop ? L"1" : L"0", path.c_str());
 }
 
 // ---------------------------------------------------------------------------
@@ -314,6 +319,11 @@ void UpdateControls() {
     EnableWindow(g.browse, idle);
     SetWindowTextW(g.record, g.recording ? L"■  録音停止" : L"●  録音開始");
     SetWindowTextW(g.window, g.recording ? L"● 録音中 - WaveSiphon" : kAppName);
+}
+
+void ApplyTopMost() {
+    SetWindowPos(g.window, g.alwaysOnTop ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 void InvalidateMeters() {
@@ -512,6 +522,7 @@ void CreateControls() {
                                WS_EX_CLIENTEDGE);
     g.browse = MakeControl(WC_BUTTONW, L"変更…", BS_PUSHBUTTON | WS_TABSTOP, kBrowseId);
     g.open = MakeControl(WC_BUTTONW, L"開く", BS_PUSHBUTTON | WS_TABSTOP, kOpenId);
+    g.topMost = MakeControl(WC_BUTTONW, L"常に最前面に表示", BS_AUTOCHECKBOX | WS_TABSTOP, kTopMostId);
     g.record = MakeControl(WC_BUTTONW, L"", BS_PUSHBUTTON | WS_TABSTOP, kRecordId);
     MakeControl(WC_STATICW, L"L", SS_CENTER | SS_CENTERIMAGE, kLeftLabelId);
     g.meterLeft = MakeControl(WC_STATICW, L"", SS_OWNERDRAW, kMeterLeftId);
@@ -523,6 +534,7 @@ void CreateControls() {
         SendMessageW(g.format, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(choice.label));
     }
     SendMessageW(g.format, CB_SETCURSEL, g.formatIndex, 0);
+    SendMessageW(g.topMost, BM_SETCHECK, g.alwaysOnTop ? BST_CHECKED : BST_UNCHECKED, 0);
 }
 
 void CreateFonts() {
@@ -561,7 +573,9 @@ void Layout() {
     Place(kFolderId, kFieldX, y, kRight - 2 * kButtonWidth - 2 * kGap - kFieldX, kRowHeight);
     Place(kBrowseId, kRight - 2 * kButtonWidth - kGap, y, kButtonWidth, kRowHeight);
     Place(kOpenId, kRight - kButtonWidth, y, kButtonWidth, kRowHeight);
-    y += 40;
+    y += 34;
+    Place(kTopMostId, kFieldX, y, 200, 20);
+    y += 28;
     Place(kRecordId, kMargin, y, kRight - kMargin, 46);
     y += 60;
     Place(kLeftLabelId, kMargin, y - 4, 14, 18);
@@ -629,6 +643,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
                 BrowseFolder();
             } else if (id == kOpenId && code == BN_CLICKED) {
                 OpenFolder();
+            } else if (id == kTopMostId && code == BN_CLICKED) {
+                g.alwaysOnTop = SendMessageW(g.topMost, BM_GETCHECK, 0, 0) == BST_CHECKED;
+                ApplyTopMost();
+                SaveSettings();
             }
             return 0;
         }
@@ -700,8 +718,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
     wc.lpszClassName = kWindowClass;
     RegisterClassExW(&wc);
 
-    HWND window = CreateWindowExW(0, kWindowClass, kAppName, kWindowStyle, CW_USEDEFAULT, CW_USEDEFAULT, 400, 300,
-                                  nullptr, nullptr, instance, nullptr);
+    const DWORD exStyle = g.alwaysOnTop ? WS_EX_TOPMOST : 0;
+    HWND window = CreateWindowExW(exStyle, kWindowClass, kAppName, kWindowStyle, CW_USEDEFAULT, CW_USEDEFAULT, 400,
+                                  300, nullptr, nullptr, instance, nullptr);
     if (!window) return 1;
     ShowWindow(window, showCommand);
     UpdateWindow(window);
