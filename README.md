@@ -18,11 +18,17 @@ Chrome などで流れている音を、**そのままの音質で** WAV ファ�
 
 ## ダウンロード
 
-GitHub の **Actions** タブ → 最新の「Build」→ **Artifacts** の `WaveSiphon` から `WaveSiphon.exe` を取得できます（GitHub へのログインが必要）。
-`v1.0.0` のようなタグを push すると、**Releases** にも exe が自動で添付されます。
+**https://github.com/ais1204/WaveSiphon/releases/latest/download/WaveSiphon.exe**
 
-> 署名していない exe のため、初回起動時に「Windows によって PC が保護されました」と表示されることがあります。
-> その場合は「詳細情報」→「実行」で起動できます。
+このリンクを開くと、最新版の `WaveSiphon.exe` を直接ダウンロードできます（インストール不要・GitHub のアカウント不要）。
+[Releases ページ](https://github.com/ais1204/WaveSiphon/releases/latest) からもダウンロードできます。
+
+> 署名していない exe のため、次のような警告が出ることがあります。
+> - ダウンロード時にブラウザーが警告を表示した場合：ダウンロード一覧（Ctrl+J）からファイルを保存してください。
+> - 初回起動時に「Windows によって PC が保護されました」と表示された場合：「詳細情報」→「実行」で起動できます。
+
+新しいバージョンを公開するには、`v1.0.1` のようなタグを push します。GitHub Actions がビルドして、Releases に exe を自動で添付します。
+コミットごとのビルドは、**Actions** タブの各実行の **Artifacts** からも取得できます（GitHub へのログインが必要）。
 
 ## 使い方
 
